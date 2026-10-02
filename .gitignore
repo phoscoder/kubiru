@@ -1,0 +1,15 @@
+# Build output
+/target/
+
+# Editor and OS files
+.idea/
+.vscode/
+*.swp
+.DS_Store
+
+# Local data that must never be committed
+*.sqlite
+*.sqlite3
+*.db
+.env
+.env.*
