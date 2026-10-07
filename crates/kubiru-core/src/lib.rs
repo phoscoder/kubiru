@@ -5,8 +5,10 @@
 //! - [`store`] — SQLite persistence for clusters and preferences
 //! - [`vault`] — bearer tokens in the operating system's keychain
 //! - [`registry`] — the two kept in step
+//! - [`kube`] — the Kubernetes API client and presentation helpers
 
 pub mod cluster;
+pub mod kube;
 pub mod registry;
 pub mod secret;
 pub mod store;
