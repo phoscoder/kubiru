@@ -1,6 +1,7 @@
 //! Talking to the Kubernetes API and presenting what it returns.
 
 mod client;
+pub mod manifest;
 mod resource;
 pub mod table;
 
