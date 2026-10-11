@@ -2,6 +2,7 @@
 
 mod client;
 pub mod manifest;
+pub mod overview;
 mod resource;
 pub mod table;
 
