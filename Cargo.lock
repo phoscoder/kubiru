@@ -3859,6 +3859,7 @@ dependencies = [
 name = "kubiru"
 version = "0.1.0"
 dependencies = [
+ "chrono",
  "gpui-kit",
  "kubiru-core",
  "serde_json",
