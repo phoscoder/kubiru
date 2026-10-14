@@ -3,6 +3,7 @@
 mod actions;
 mod appearance;
 mod session;
+mod ui;
 
 use gpui_kit::component::{ActiveTheme as _, v_flex};
 use gpui_kit::{
