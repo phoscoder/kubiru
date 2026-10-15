@@ -144,7 +144,7 @@ pub fn columns(kind: ResourceKind) -> Vec<ColumnSpec> {
     let specific: &[ColumnSpec] = match kind {
         ResourceKind::Pods => &[
             col("Ready", Text, 70.),
-            col("Status", Status, 150.),
+            col("Status", Status, 170.),
             col("Restarts", Number, 80.),
             col("Node", Text, 180.),
             col("IP", Text, 120.),
