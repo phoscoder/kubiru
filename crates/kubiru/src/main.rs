@@ -2,6 +2,7 @@
 
 mod actions;
 mod appearance;
+mod pages;
 mod session;
 mod ui;
 
