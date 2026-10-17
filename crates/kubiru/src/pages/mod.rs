@@ -1,6 +1,7 @@
 //! The views shown in the main area of the window.
 
 pub mod manifest;
+pub mod overview;
 pub mod resources;
 
 use std::rc::Rc;
