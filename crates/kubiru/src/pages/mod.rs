@@ -1,6 +1,7 @@
 //! The views shown in the main area of the window.
 
 pub mod cluster_form;
+pub mod clusters;
 pub mod manifest;
 pub mod overview;
 pub mod resources;
