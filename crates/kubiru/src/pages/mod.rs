@@ -5,6 +5,7 @@ pub mod clusters;
 pub mod manifest;
 pub mod overview;
 pub mod resources;
+pub mod settings;
 
 use std::rc::Rc;
 
