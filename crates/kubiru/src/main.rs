@@ -5,15 +5,22 @@ mod appearance;
 mod pages;
 mod session;
 mod ui;
+mod workspace;
+
+use std::sync::Arc;
 
 use gpui_kit::component::{ActiveTheme as _, v_flex};
 use gpui_kit::{
     App, AppContext as _, Bounds, Context, FontWeight, IntoElement, ParentElement, Render,
     SharedString, Styled, TitlebarOptions, Window, WindowBounds, WindowOptions, div, px, size,
 };
+use kubiru_core::Registry;
 use kubiru_core::store::{self, Store, keys};
+use kubiru_core::vault::KeyringVault;
 
 use crate::appearance::Appearance;
+use crate::session::Session;
+use crate::workspace::Workspace;
 
 fn main() {
     let data_path = store::default_path();
@@ -36,7 +43,7 @@ fn main() {
             .detach();
 
             let options = window_options(cx);
-            let (appearance, message) = match opened {
+            let result = match opened {
                 Ok(store) => {
                     let appearance = store
                         .preference(keys::THEME)
@@ -44,22 +51,24 @@ fn main() {
                         .flatten()
                         .map(|k| Appearance::from_key(&k))
                         .unwrap_or_default();
-                    (appearance, None)
+                    let registry = Arc::new(Registry::new(store, Arc::new(KeyringVault)));
+                    let data_path: Option<SharedString> =
+                        data_path.map(|p| p.display().to_string().into());
+                    gpui_kit::open_window(options, cx, move |window, cx| {
+                        appearance.apply(Some(window), cx);
+                        let session = cx.new(|cx| Session::new(registry, cx));
+                        cx.new(|cx| Workspace::new(session, appearance, data_path, window, cx))
+                    })
+                    .map(drop)
                 }
-                Err(message) => (Appearance::System, Some(message)),
-            };
-            let result = gpui_kit::open_window(options, cx, move |window, cx| {
-                appearance.apply(Some(window), cx);
-                cx.new(|_| Message {
-                    title: if message.is_some() {
-                        "Kubiru could not start"
-                    } else {
-                        "Kubiru"
-                    }
-                    .into(),
-                    message: message.unwrap_or_default().into(),
+                Err(message) => gpui_kit::open_window(options, cx, move |window, cx| {
+                    Appearance::System.apply(Some(window), cx);
+                    cx.new(|_| StartupError {
+                        message: message.into(),
+                    })
                 })
-            });
+                .map(drop),
+            };
             if let Err(e) = result {
                 // There is no window to show this in.
                 #[allow(clippy::print_stderr)]
@@ -89,13 +98,12 @@ fn window_options(cx: &mut App) -> WindowOptions {
     }
 }
 
-/// A centred title and message.
-struct Message {
-    title: SharedString,
+/// Shown instead of the workspace when local data cannot be opened.
+struct StartupError {
     message: SharedString,
 }
 
-impl Render for Message {
+impl Render for StartupError {
     fn render(&mut self, _: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         v_flex()
             .size_full()
@@ -109,7 +117,7 @@ impl Render for Message {
                 div()
                     .text_xl()
                     .font_weight(FontWeight::SEMIBOLD)
-                    .child(self.title.clone()),
+                    .child("Kubiru could not start"),
             )
             .child(
                 div()
