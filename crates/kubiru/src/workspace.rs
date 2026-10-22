@@ -627,3 +627,128 @@ impl Render for Workspace {
             )
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use std::sync::Arc;
+
+    use gpui_kit::{TestAppContext, VisualTestContext};
+    use kubiru_core::store::Store;
+    use kubiru_core::vault::MemoryVault;
+    use kubiru_core::{ClusterDraft, Registry};
+
+    use super::*;
+
+    fn registry() -> Arc<Registry> {
+        Arc::new(Registry::new(
+            Store::open_in_memory().unwrap(),
+            Arc::new(MemoryVault::default()),
+        ))
+    }
+
+    /// Open the workspace the way `main` does, inside a window Root, so
+    /// dialogs and notifications have somewhere to render.
+    fn open(
+        cx: &mut TestAppContext,
+        registry: Arc<Registry>,
+    ) -> (Entity<Workspace>, &mut VisualTestContext) {
+        cx.update(|cx| {
+            gpui_kit::init(cx);
+            crate::actions::bind(cx);
+        });
+        let (window, workspace) = cx
+            .update(|cx| {
+                gpui_kit::open_window(gpui_kit::WindowOptions::default(), cx, |window, cx| {
+                    let session = cx.new(|cx| Session::new(registry, cx));
+                    cx.new(|cx| Workspace::new(session, Appearance::Light, None, window, cx))
+                })
+            })
+            .unwrap();
+        let cx = VisualTestContext::from_window(window, cx).into_mut();
+        cx.run_until_parked();
+        (workspace, cx)
+    }
+
+    fn route(workspace: &Entity<Workspace>, cx: &mut VisualTestContext) -> Route {
+        cx.update(|_, cx| workspace.read(cx).route())
+    }
+
+    #[gpui_kit::test]
+    fn starts_on_the_overview_without_a_cluster(cx: &mut TestAppContext) {
+        let (workspace, cx) = open(cx, registry());
+        assert_eq!(route(&workspace, cx), Route::Overview);
+        cx.update(|_, cx| {
+            assert!(
+                workspace
+                    .read(cx)
+                    .session
+                    .read(cx)
+                    .active_cluster()
+                    .is_none()
+            )
+        });
+    }
+
+    #[gpui_kit::test]
+    fn shortcuts_navigate(cx: &mut TestAppContext) {
+        let (workspace, cx) = open(cx, registry());
+        for (keys, expected) in [
+            ("secondary-2", Route::Resources(ResourceKind::Pods)),
+            ("secondary-3", Route::Resources(ResourceKind::Deployments)),
+            ("secondary-4", Route::Resources(ResourceKind::Services)),
+            ("secondary-5", Route::Resources(ResourceKind::Nodes)),
+            ("secondary-,", Route::Settings),
+            ("secondary-shift-k", Route::Clusters),
+            ("secondary-1", Route::Overview),
+        ] {
+            cx.simulate_keystrokes(keys);
+            assert_eq!(route(&workspace, cx), expected, "after {keys}");
+        }
+    }
+
+    #[gpui_kit::test]
+    fn the_sidebar_collapses_and_remembers_it(cx: &mut TestAppContext) {
+        let registry = registry();
+        let (workspace, cx) = open(cx, registry.clone());
+        cx.simulate_keystrokes("secondary-b");
+        cx.update(|_, cx| assert!(workspace.read(cx).sidebar_collapsed()));
+        let saved = registry
+            .with_store(|s| s.preference(keys::SIDEBAR_COLLAPSED))
+            .unwrap();
+        assert_eq!(saved.as_deref(), Some("true"));
+        cx.simulate_keystrokes("secondary-b");
+        cx.update(|_, cx| assert!(!workspace.read(cx).sidebar_collapsed()));
+    }
+
+    #[gpui_kit::test]
+    fn add_cluster_opens_a_dialog(cx: &mut TestAppContext) {
+        let (_, cx) = open(cx, registry());
+        cx.simulate_keystrokes("secondary-n");
+        cx.update(|window, cx| assert!(window.has_active_dialog(cx)));
+    }
+
+    #[gpui_kit::test]
+    fn an_existing_cluster_is_activated_on_start(cx: &mut TestAppContext) {
+        let registry = registry();
+        registry
+            .create(&ClusterDraft {
+                name: "local".into(),
+                // Nothing listens on port 1, so connecting fails quickly.
+                api_url: "http://127.0.0.1:1".into(),
+                token: "t".into(),
+                ..Default::default()
+            })
+            .unwrap();
+        let (workspace, cx) = open(cx, registry);
+        cx.update(|_, cx| {
+            let session = workspace.read(cx).session.read(cx);
+            assert_eq!(
+                session.active_cluster().map(|c| c.name.as_str()),
+                Some("local")
+            );
+            // The client is created, but listing namespaces could not reach the server.
+            assert!(session.client().is_some());
+            assert!(matches!(session.namespaces(), Load::Failed(_)));
+        });
+    }
+}
