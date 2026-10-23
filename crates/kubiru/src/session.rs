@@ -8,7 +8,7 @@
 use std::sync::Arc;
 
 use gpui_kit::{App, AppContext as _, Context, EventEmitter};
-use kubiru_core::kube::KubeClient;
+use kubiru_core::kube::{KubeClient, KubeError};
 use kubiru_core::{Cluster, ClusterId, Registry};
 
 /// Progress of something loaded in the background.
@@ -195,14 +195,20 @@ impl Session {
         let epoch = self.epoch;
         let registry = self.registry.clone();
         let task = cx.background_spawn(async move {
-            let client = registry
+            let mut client = registry
                 .credentials(id)
                 .map_err(|e| e.to_string())
                 .and_then(|creds| KubeClient::new(&creds).map_err(|e| e.to_string()));
-            let namespaces = client
-                .as_ref()
-                .ok()
-                .map(|c| c.namespaces().map_err(|e| e.to_string()));
+            let namespaces = client.as_ref().ok().map(KubeClient::namespaces);
+            // Listing namespaces doubles as the connection check. A server that
+            // cannot be reached, or that rejects the token, is not connected; a
+            // token that may simply not list namespaces (RBAC) still is.
+            if let Some(Err(e)) = &namespaces
+                && (e.is_transient() || matches!(e, KubeError::Unauthorized))
+            {
+                client = Err(e.to_string());
+            }
+            let namespaces = namespaces.map(|r| r.map_err(|e| e.to_string()));
             (client, namespaces)
         });
         cx.spawn(async move |this, cx| {

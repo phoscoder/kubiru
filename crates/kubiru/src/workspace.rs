@@ -746,9 +746,11 @@ mod tests {
                 session.active_cluster().map(|c| c.name.as_str()),
                 Some("local")
             );
-            // The client is created, but listing namespaces could not reach the server.
-            assert!(session.client().is_some());
-            assert!(matches!(session.namespaces(), Load::Failed(_)));
+            // The server cannot be reached, so the connection is reported as failed.
+            assert!(session.client().is_none());
+            assert!(
+                matches!(session.connection(), Load::Failed(e) if e.contains("could not reach"))
+            );
         });
     }
 }
