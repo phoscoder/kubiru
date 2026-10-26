@@ -1,0 +1,55 @@
+name: Bug report
+description: Something in Kubiru does not work as expected.
+labels: ["bug", "triage"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for taking the time to report a problem.
+        **Security issues:** please do not report them here; follow [SECURITY.md](https://github.com/phoscoder/kubiru/blob/main/SECURITY.md) instead.
+        **Never paste tokens, kubeconfig files or other secrets** into an issue.
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened?
+      description: What did you see, and what did you expect to see instead?
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      placeholder: |
+        1. Open the Deployments view
+        2. Select the namespace "web"
+        3. ...
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: Kubiru version or commit
+      placeholder: "0.1.0 or a1b2c3d"
+    validations:
+      required: true
+  - type: dropdown
+    id: os
+    attributes:
+      label: Operating system
+      options:
+        - Linux (Wayland)
+        - Linux (X11)
+        - macOS
+        - Windows
+    validations:
+      required: true
+  - type: input
+    id: kubernetes
+    attributes:
+      label: Kubernetes version and distribution
+      placeholder: "v1.34.1, kind / EKS / k3s / ..."
+  - type: textarea
+    id: extra
+    attributes:
+      label: Screenshots or other context
+      description: Screenshots help a lot. Remember to hide cluster addresses or names you do not want to share.
