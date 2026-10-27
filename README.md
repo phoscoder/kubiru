@@ -21,6 +21,7 @@ in the operating system's keychain.
 
 - [Features](#features)
 - [Screenshots](#screenshots)
+- [How it works](#how-it-works)
 - [Installation](#installation)
 - [Getting started](#getting-started)
 - [Keyboard shortcuts](#keyboard-shortcuts)
@@ -53,6 +54,92 @@ in the operating system's keychain.
 | Cluster management (dark)                                 |
 | --------------------------------------------------------- |
 | ![Saved clusters in dark mode](docs/images/clusters-dark.png) |
+
+## How it works
+
+Kubiru is a single native process. The window never waits on the network or
+the keychain: slow work runs on background threads, and results come back to
+the UI only if they still match what you are looking at.
+
+```mermaid
+%%{init: {"flowchart": {"curve": "basis", "nodeSpacing": 40, "rankSpacing": 55}} }%%
+flowchart LR
+    user(["👤 You"])
+
+    subgraph app["🖥️ Kubiru window · GPUI Kit"]
+        direction TB
+        ws["<b>Workspace</b><br/>sidebar · namespace switcher · shortcuts"]
+        pages["<b>Pages</b><br/>Overview · Tables · Manifest editor<br/>Clusters · Settings"]
+        session["<b>Session</b><br/>active cluster · namespace · epoch"]
+        ws --> pages
+        pages <--> session
+    end
+
+    subgraph core["⚙️ kubiru-core · background threads"]
+        direction TB
+        registry["<b>Registry</b><br/>keeps settings and token in step"]
+        client["<b>KubeClient</b><br/>TLS verified · no redirects<br/>timeouts · size limits"]
+        guard["<b>Manifest guard</b><br/>identity + resourceVersion checks"]
+        present["<b>Presentation</b><br/>kubectl-style rows · health summary"]
+    end
+
+    subgraph local["💾 Your computer"]
+        direction TB
+        db[("SQLite<br/>clusters · CA certs · preferences")]
+        keychain[("🔐 OS keychain<br/>bearer tokens")]
+    end
+
+    api{{"☸️ Kubernetes<br/>API server"}}
+
+    user -- "click · type · shortcut" --> ws
+    session -- "connect" --> registry
+    registry --> db
+    registry --> keychain
+    session -- "list · get" --> client
+    pages -- "apply edit" --> guard --> client
+    client == "HTTPS + Bearer token" ==> api
+    api -. "JSON" .-> present -. "rows · overview" .-> pages
+
+    classDef person fill:#6e56cf,stroke:#4c3a9e,color:#ffffff,stroke-width:2px
+    classDef ui fill:#ede9fe,stroke:#7c3aed,color:#2e1065,stroke-width:1.5px
+    classDef logic fill:#e0f2fe,stroke:#0284c7,color:#082f49,stroke-width:1.5px
+    classDef store fill:#dcfce7,stroke:#16a34a,color:#052e16,stroke-width:1.5px
+    classDef cluster fill:#326ce5,stroke:#1e40af,color:#ffffff,stroke-width:2px
+    class user person
+    class ws,pages,session ui
+    class registry,client,guard,present logic
+    class db,keychain store
+    class api cluster
+    style app fill:transparent,stroke:#7c3aed,stroke-dasharray:6 4
+    style core fill:transparent,stroke:#0284c7,stroke-dasharray:6 4
+    style local fill:transparent,stroke:#16a34a,stroke-dasharray:6 4
+```
+
+What happens when you open a table:
+
+```mermaid
+sequenceDiagram
+    autonumber
+    actor You
+    participant UI as Kubiru window
+    participant BG as Background thread
+    participant API as Kubernetes API
+
+    You->>UI: Mod+2 (Pods)
+    UI->>UI: Show the table, mark it refreshing
+    UI->>BG: list pods in the selected namespace
+    BG->>API: GET /api/v1/namespaces/{ns}/pods<br/>Authorization: Bearer ••••
+    API-->>BG: PodList (JSON)
+    BG->>BG: Build kubectl-style rows (status, ready, restarts, age)
+    BG-->>UI: Rows tagged with the request number
+    alt still the latest request
+        UI->>You: Sorted, filterable table
+    else you switched cluster or namespace meanwhile
+        UI->>UI: Discard stale result
+    end
+```
+
+See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for the details.
 
 ## Installation
 
