@@ -16,7 +16,7 @@ categories = ["gui", "development-tools"]
 [workspace.dependencies]
 kubiru-core = { path = "crates/kubiru-core", version = "0.1.0" }
 
-gpui-kit = { version = "=0.7.3", features = ["tree-sitter-yaml"] }
+gpui-kit = { version = "=0.8.0", features = ["tree-sitter-yaml"] }
 directories = "6"
 keyring = { version = "3.6", default-features = false }
 reqwest = { version = "0.12", default-features = false, features = ["blocking", "json", "rustls-tls"] }
